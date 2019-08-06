@@ -25,6 +25,10 @@ ui <- fluidPage(
         font-family: 'Blinker', sans-serif;
       }
 
+    div {
+        align: 'center'
+    }
+
       h1 {
         font-weight: bold;
         line-height: 1.1;
@@ -37,8 +41,8 @@ ui <- fluidPage(
       }
 
       h4 {
-        font-weight: 500;
-        line-height: 1.1;
+        font-weight: 600;
+        line-height: 1.3;
       }
 
       th {
@@ -156,15 +160,21 @@ ui <- fluidPage(
            column(width = 4, uiOutput("dose_col")),
            column(width = 4, uiOutput("response_col"))),
   fluidRow(column(width = 12, actionButton("ready_to_fit", "Ready to fit"))),
+  fluidRow(column(width = 9, h4("This table is filterable! Click the empty box under column headers to pull up a text input search box for categorical columns, or a slider for numeric columns. If the slider range is too wide, you can type a custom range: e.g. in the box under Rsq, typing  '0.8 ... 1' will select rows with Rsqs between those two values."))),
   
-  fluidRow(column(
-    width = 12,
-    dataTableOutput("fitted_contents") %>% withSpinner(color="#FC7018")
-  )),
-  fluidRow(column(
-      width = 12,
-    plotOutput("fit_plotted") %>% withSpinner(color="#FC7018")
-  )),
+  fluidRow(
+    column(width = 12,
+    dataTableOutput("fitted_contents") %>% withSpinner(color="#FC7018"),
+    downloadButton("download_fitted_data", "Download Fits (Long)")),
+  fluidRow(
+    column(width = 12,
+    plotOutput("fit_plotted") %>% withSpinner(color="#FC7018"),
+    downloadButton("download_plot", "Save Plot (.png)"))
+  ),
+  # fluidRow(column(
+  #     width = 12,
+  #   plotOutput("fit_plotted") %>% withSpinner(color="#FC7018")
+  # )),
 
   fluidRow(
     column(
@@ -172,7 +182,7 @@ ui <- fluidPage(
     h4("Preparing data for download in wide format"),
     dataTableOutput("fitted_contents_wide") %>% withSpinner(color="#FC7018")
   )),
-  fluidRow(column(width = 12, downloadButton("download_fitted_data", "Download Fits")))
+  fluidRow(column(width = 12, downloadButton("download_fitted_data_wide", "Download Fits (Wide)")))
 
 )
 
@@ -333,7 +343,7 @@ server <- function(input, output, session) {
   })
   
   output$download_mapped_data <- downloadHandler(
-    filename = function(){paste0("results_mapped_to_design_", format(Sys.time(), "%m%d%Y_%H%M"), ".csv")},
+    filename = function(){paste0("results_mapped_to_design_", format(Sys.time(), "%Y%m%d_%H%M_%p"), ".csv")},
     content = function(file){
       mapped_df() %>%
         readr::write_csv(file)
@@ -353,7 +363,7 @@ server <- function(input, output, session) {
   })
   
   output$download_mapped_data_wide <- downloadHandler(
-    filename = function(){paste0("results_mapped_to_design_", format(Sys.time(), "%m%d%Y_%H%M"), ".csv")},
+    filename = function(){paste0("results_mapped_to_design_", format(Sys.time(), "%Y%m%d_%H%M_%p"), ".csv")},
     content = function(file){
       mapped_df() %>%
         readr::write_csv(file)
@@ -412,8 +422,18 @@ server <- function(input, output, session) {
     fitted_df() %>%
       mutate(plot = shinyInput(actionButton, nrow(fitted_df()), 'button_', label = "Plot", onclick = 'Shiny.onInputChange(\"plot_button\",  this.id)' )) %>%
       dplyr::select(plot, everything()) %>%
-      DT::datatable(escape = FALSE, selection = 'none', filter = 'top')
+      dplyr::select(-c(group_data, fit, IC50)) %>%
+      DT::datatable(escape = FALSE, selection = 'none', filter = 'top', options = list(scrollX = T))
   })
+  
+  output$download_fitted_data <- downloadHandler(
+    filename = function(){paste0("curve_fits_", format(Sys.time(), "%Y%m%d_%H%M_%p"), ".csv")},
+    content = function(file){
+      fitted_df() %>%
+        dplyr::select(-c(group_data, fit, IC50)) %>%
+        readr::write_csv(file)
+    }
+  )
   
   
   ## For plotting in a new window:
@@ -425,26 +445,37 @@ server <- function(input, output, session) {
   # }
   
   selected_row <- reactiveVal(1)
-  observeEvent(input$plot_button, 
-               {
+  curve_plot <- function(){fitted_df()$fit[[selected_row()]] %>% plot()}
+  curve_filename <- function(){fitted_df() %>% select(cytokine:ETRatio) %>% slice(selected_row()) %>% unlist(., use.names = FALSE) %>% paste0(paste(., collapse="_"), ".png")}
+  
+  observeEvent(input$plot_button, {
                  new_row <- as.numeric(strsplit(input$plot_button, "_")[[1]][2])
                  selected_row(new_row)
-                 removeModal()
-                 showModal(plotOutput("fit_plotted"))
-               }
+                # showModal(modalDialog(plotOutput("fit_plotted", width = "70%")))
+    }
   )
   
   output$fit_plotted <- renderPlot({
-    p <- fitted_df()$fit[[selected_row()]] %>% plot()
-    p
+    print(curve_plot())
   })
+  
+  output$download_plot <- downloadHandler(
+    filename = function(){curve_filename()},
+      #paste0(paste("curve",
+                                      # paste(fitted_df()[selected_row(), 1:5], collapse = "_"),
+                                       # format(Sys.time(), "%Y%m%d_%H%M_%p"), sep="_"),".png"),
+    content = function(file){
+      ggsave(file, curve_plot())
+    },
+    contentType = "image/png"
+  )
   
   ## Prepare wide data.frame for user to download
   
   fitted_df_wide <- reactive({
     
     fitted_df() %>%
-      dplyr::select(-c(group_data, fit)) %>%
+      dplyr::select(-c(group_data, fit, IC50)) %>%
       myspread(cytokine, c(Rsq:UpperLimit))
     
   })
@@ -456,8 +487,8 @@ server <- function(input, output, session) {
                   ))
   })
   
-  output$download_fitted_data <- downloadHandler(
-    filename = function(){paste0("curve_fits_", format(Sys.time(), "%m%d%Y_%H%M"), ".csv")},
+  output$download_fitted_data_wide <- downloadHandler(
+    filename = function(){paste0("curve_fits_wide_", format(Sys.time(), "%Y%m%d_%H%M_%p"), ".csv")},
     content = function(file){
       fitted_df_wide() %>%
         readr::write_csv(file)
