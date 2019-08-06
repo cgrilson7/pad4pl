@@ -435,17 +435,17 @@ server <- function(input, output, session) {
   )
   
   
-  ## For plotting in a new window:
-  # define modal
-  # plotModal <- function() {
-  #   modalDialog(
-  #     plotOutput("fit_plotted")
-  #   )
-  # }
-  
   selected_row <- reactiveVal(1)
-  curve_plot <- function(){fitted_df()$fit[[selected_row()]] %>% plot()}
-  curve_filename <- function(){fitted_df() %>% dplyr::select(cytokine:ETRatio) %>% slice(selected_row()) %>% unlist(., use.names = FALSE) %>% paste0(paste(., collapse="_"), ".png")}
+  
+  curve_plot <- function(){
+    fitted_df()$fit[[selected_row()]] %>% plot()
+  }
+  
+  curve_filename <- function(){fitted_df() %>%
+      dplyr::select(cytokine:ETRatio) %>%
+      slice(selected_row()) %>%
+      unlist(., use.names = FALSE) %>%
+      paste0(paste(., collapse="_"), ".png")}
   
   observeEvent(input$plot_button, {
                  new_row <- as.numeric(strsplit(input$plot_button, "_")[[1]][2])
@@ -455,14 +455,26 @@ server <- function(input, output, session) {
   )
   
   output$fit_plotted <- renderPlot({
-    print(curve_plot())
+    curve_plot()
+    # p <- curve_plot()
+    # 
+    # conditions <- fitted_df() %>%
+    #   dplyr::select(cytokine:ETRatio) %>%
+    #   slice(selected_row()) %>%
+    #   unlist(., use.names=FALSE) %>% paste(., collapse=", ")
+    # 
+    # parameters <- fitted_df() %>%
+    #   dplyr::select(LowerLimit, Slope, EC50, UpperLimit) %>%
+    #   slice(selected_row()) %>%
+    #   unlist(., use.names = T)
+    # parameters_string <- paste(names(parameters), round(parameters, 2), sep = ": ", collapse = ", ")
+    # 
+    # p_out <- p + title(conditions, sub = parameters_string)
+    # print(p_out)
   })
   
   output$download_plot <- downloadHandler(
     filename = function(){curve_filename()},
-      #paste0(paste("curve",
-                                      # paste(fitted_df()[selected_row(), 1:5], collapse = "_"),
-                                       # format(Sys.time(), "%Y%m%d_%H%M_%p"), sep="_"),".png"),
     content = function(file){
       ggsave(file, curve_plot())
     },
