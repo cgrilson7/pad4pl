@@ -163,13 +163,16 @@ ui <- fluidPage(
   fluidRow(column(width = 9, h4("This table is filterable! Click the empty box under column headers to pull up a text input search box for categorical columns, or a slider for numeric columns. If the slider range is too wide, you can type a custom range: e.g. in the box under Rsq, typing  '0.8 ... 1' will select rows with Rsqs between those two values."))),
   
   fluidRow(
-    column(width = 6,
-    dataTableOutput("fitted_contents") %>% withSpinner(color="#FC7018")),
-    column(width = 6,
+    column(width = 12,
+    dataTableOutput("fitted_contents") %>% withSpinner(color="#FC7018"),
+    downloadButton("download_fitted_data", "Download Fits (Long)"))
+  ),
+  fluidRow(
+    column(width = 12,
     plotOutput("fit_plotted") %>% withSpinner(color="#FC7018"),
     downloadButton("download_plot", "Save Plot (.png)"))
   ),
-  fluidRow(column(width = 12, downloadButton("download_fitted_data", "Download Fits (Long)"))),
+  
   # fluidRow(column(
   #     width = 12,
   #   plotOutput("fit_plotted") %>% withSpinner(color="#FC7018")
@@ -426,7 +429,7 @@ server <- function(input, output, session) {
   })
   
   output$download_fitted_data <- downloadHandler(
-    filename = function(){paste0("curve_fits_", format(Sys.time(), "%Y%m%d_%H%M_%p"), ".csv")},
+    filename = function(){paste0("curve_fit_data_", format(Sys.time(), "%Y%m%d_%H%M_%p"), ".csv")},
     content = function(file){
       fitted_df() %>%
         dplyr::select(-c(group_data, fit, IC50)) %>%
@@ -487,7 +490,7 @@ server <- function(input, output, session) {
     
     fitted_df() %>%
       dplyr::select(-c(group_data, fit, IC50)) %>%
-      myspread(cytokine, c(Rsq:UpperLimit))
+      myspread(cytokine, c(LowerLimit, Slope, EC50, UpperLimit))
     
   })
   
