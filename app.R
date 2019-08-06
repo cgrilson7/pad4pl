@@ -41,7 +41,6 @@ ui <- fluidPage(
       }
 
       h4 {
-        font-weight: 600;
         line-height: 1.3;
       }
 
@@ -132,22 +131,17 @@ ui <- fluidPage(
   ),
 
   fluidRow(
-    column(
-      width = 12,
-      h4("Results mapped to design:"),
-      dataTableOutput("mapped_contents") %>% withSpinner(color="#FC7018")
+    column(width = 6,
+      htmlOutput("mapped_explain"),
+      dataTableOutput("mapped_contents") %>% withSpinner(color="#FC7018"),
+      downloadButton("download_mapped_data", "Download Mapped Data (Long)")
+    ),
+    column(width = 6,
+      htmlOutput("mapped_explain_wide"),
+      dataTableOutput("mapped_contents_wide") %>% withSpinner(color="#FC7018"),
+      downloadButton("download_mapped_data_wide", "Download Mapped Data (Wide)")
     )
   ),
-  fluidRow(column(width = 12, downloadButton("download_mapped_data", "Download Mapped Data (Long)"))),
-
-  fluidRow(
-    column(
-      width = 12,
-      h4("Results mapped to design:"),
-      dataTableOutput("mapped_contents_wide") %>% withSpinner(color="#FC7018")
-    )
-  ),
-  fluidRow(column(width = 12, downloadButton("download_mapped_data_wide", "Download Mapped Data (Wide)"))),
 
 # 3. Select grouping variables specific to experimental configurat --------
 
@@ -160,10 +154,11 @@ ui <- fluidPage(
            column(width = 4, uiOutput("dose_col")),
            column(width = 4, uiOutput("response_col"))),
   fluidRow(column(width = 12, actionButton("ready_to_fit", "Ready to fit"))),
-  fluidRow(column(width = 9, h4("This table is filterable! Click the empty box under column headers to pull up a text input search box for categorical columns, or a slider for numeric columns. If the slider range is too wide, you can type a custom range: e.g. in the box under Rsq, typing  '0.8 ... 1' will select rows with Rsqs between those two values."))),
+  # fluidRow(column(width = 9, h4("This table is filterable! Click the empty box under column headers to pull up a text input search box for categorical columns, or a slider for numeric columns. If the slider range is too wide, you can type a custom range: e.g. in the box under Rsq, typing  '0.8 ... 1' will select rows with Rsqs between those two values."))),
   
   fluidRow(
     column(width = 12,
+    htmlOutput("fitted_explain"),
     dataTableOutput("fitted_contents") %>% withSpinner(color="#FC7018"),
     downloadButton("download_fitted_data", "Download Fits (Long)"))
   ),
@@ -335,10 +330,14 @@ server <- function(input, output, session) {
       dplyr::left_join(design_df(), by = keys)
   })
   
-
+  observeEvent(input$ready_to_map, {
+    output$mapped_explain <- renderText({
+    "<h4><b>Long</b> format:<br>Each well gets <b>n</b> rows, one for each of the <b>n</b> analytes </h4>"
+    })
+  })
   
   output$mapped_contents <- renderDataTable({
-    DT::datatable(mapped_df(),
+    DT::datatable(mapped_df() %>% dplyr::select(-c(p384, well384, row96, col96)),
                   options = list(
                     scrollX = T, paging = T
                   ))
@@ -352,13 +351,19 @@ server <- function(input, output, session) {
     }
   )
   
+  observeEvent(input$ready_to_map, {
+    output$mapped_explain_wide <- renderText({
+      "<h4><b>Wide</b> format:<br>Each well gets one row, with three columns (channel 1, channel 2, ratio) for each analyte</h4>"
+    })
+  })
+  
   mapped_df_wide <- reactive({
     mapped_df() %>%
       myspread(cytokine, c(channel_1, channel_2, ratio))
   })
   
   output$mapped_contents_wide <- renderDataTable({
-    DT::datatable(mapped_df_wide(),
+    DT::datatable(mapped_df_wide() %>% dplyr::select(-c(p384, well384, row96, col96)),
                   options = list(
                     scrollX = T, paging = T
                   ))
@@ -420,6 +425,10 @@ server <- function(input, output, session) {
     inputs
   }
   
+  output$fitted_explain <- renderText({
+    loaded = fitted_df()
+  return("<h4>This table is filterable! Click the empty box under column headers to pull up a text input search box for categorical columns, or a slider for numeric columns. If the slider range is too wide, you can type a custom range: e.g. in the box under Rsq, typing  '0.8 ... 1' will select rows with Rsqs between those two values. </h4>")
+    })
   output$fitted_contents <- renderDataTable({
     fitted_df() %>%
       mutate(plot = shinyInput(actionButton, nrow(fitted_df()), 'button_', label = "Plot", onclick = 'Shiny.onInputChange(\"plot_button\",  this.id)' )) %>%
@@ -445,7 +454,7 @@ server <- function(input, output, session) {
   }
   
   curve_filename <- function(){fitted_df() %>%
-      dplyr::select(cytokine:ETRatio) %>%
+      dplyr::select(c(cytokine, !!!syms(input$chosen_condition_cols))) %>%
       slice(selected_row()) %>%
       unlist(., use.names = FALSE) %>%
       paste0(paste(., collapse="_"), ".png")}
