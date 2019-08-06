@@ -163,11 +163,9 @@ ui <- fluidPage(
   fluidRow(column(width = 9, h4("This table is filterable! Click the empty box under column headers to pull up a text input search box for categorical columns, or a slider for numeric columns. If the slider range is too wide, you can type a custom range: e.g. in the box under Rsq, typing  '0.8 ... 1' will select rows with Rsqs between those two values."))),
   
   fluidRow(
-    column(width = 12,
-    dataTableOutput("fitted_contents") %>% withSpinner(color="#FC7018"),
-    downloadButton("download_fitted_data", "Download Fits (Long)"))),
-  fluidRow(
-    column(width = 12,
+    column(width = 6,
+    dataTableOutput("fitted_contents") %>% withSpinner(color="#FC7018")),
+    column(width = 6,
     plotOutput("fit_plotted") %>% withSpinner(color="#FC7018"),
     downloadButton("download_plot", "Save Plot (.png)"))
   ),
@@ -447,7 +445,7 @@ server <- function(input, output, session) {
   
   selected_row <- reactiveVal(1)
   curve_plot <- function(){fitted_df()$fit[[selected_row()]] %>% plot()}
-  curve_filename <- function(){fitted_df() %>% select(cytokine:ETRatio) %>% slice(selected_row()) %>% unlist(., use.names = FALSE) %>% paste0(paste(., collapse="_"), ".png")}
+  curve_filename <- function(){fitted_df() %>% dplyr::select(cytokine:ETRatio) %>% slice(selected_row()) %>% unlist(., use.names = FALSE) %>% paste0(paste(., collapse="_"), ".png")}
   
   observeEvent(input$plot_button, {
                  new_row <- as.numeric(strsplit(input$plot_button, "_")[[1]][2])
