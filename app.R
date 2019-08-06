@@ -412,7 +412,7 @@ server <- function(input, output, session) {
     fitted_df() %>%
       mutate(plot = shinyInput(actionButton, nrow(fitted_df()), 'button_', label = "Plot", onclick = 'Shiny.onInputChange(\"plot_button\",  this.id)' )) %>%
       dplyr::select(plot, everything()) %>%
-      DT::datatable(escape = FALSE, selection = 'none')
+      DT::datatable(escape = FALSE, selection = 'none', filter = 'top')
   })
   
   
