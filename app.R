@@ -165,12 +165,13 @@ ui <- fluidPage(
   fluidRow(
     column(width = 12,
     dataTableOutput("fitted_contents") %>% withSpinner(color="#FC7018"),
-    downloadButton("download_fitted_data", "Download Fits (Long)")),
+    downloadButton("download_fitted_data", "Download Fits (Long)"))),
   fluidRow(
     column(width = 12,
     plotOutput("fit_plotted") %>% withSpinner(color="#FC7018"),
     downloadButton("download_plot", "Save Plot (.png)"))
   ),
+  fluidRow(column(width = 12, downloadButton("download_fitted_data", "Download Fits (Long)"))),
   # fluidRow(column(
   #     width = 12,
   #   plotOutput("fit_plotted") %>% withSpinner(color="#FC7018")
