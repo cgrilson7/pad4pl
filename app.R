@@ -504,7 +504,7 @@ server <- function(input, output, session) {
   })
   
   output$fitted_contents_wide <- renderDataTable({
-    DT::datatable(fitted_df_wide(),
+    DT::datatable(fitted_df_wide(), escape = FALSE, selection = 'none', filter = 'top',
                   options = list(
                     scrollX = T, paging = T
                   ))
