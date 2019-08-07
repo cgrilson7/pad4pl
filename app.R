@@ -426,8 +426,8 @@ server <- function(input, output, session) {
   }
   
   output$fitted_explain <- renderText({
-    loaded = fitted_df()
-  return("<h4>This table is filterable! Click the empty box under column headers to pull up a text input search box for categorical columns, or a slider for numeric columns. If the slider range is too wide, you can type a custom range: e.g. in the box under Rsq, typing  '0.8 ... 1' will select rows with Rsqs between those two values. </h4>")
+    if(!is.null(fitted_df())){
+  return("<h4>This table is filterable! Click the empty box under column headers to pull up a text input search box for categorical columns, or a slider for numeric columns. If the slider range is too wide, you can type a custom range: e.g. in the box under Rsq, typing  '0.8 ... 1' will select rows with Rsqs between those two values. </h4>")}
     })
   output$fitted_contents <- renderDataTable({
     fitted_df() %>%
@@ -499,7 +499,7 @@ server <- function(input, output, session) {
     
     fitted_df() %>%
       dplyr::select(-c(group_data, fit, IC50)) %>%
-      myspread(cytokine, c(LowerLimit, Slope, EC50, UpperLimit))
+      myspread(cytokine, c(Rsq, LowerLimit, Slope, EC50, UpperLimit))
     
   })
   

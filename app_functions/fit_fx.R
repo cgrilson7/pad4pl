@@ -68,7 +68,7 @@ get_params <- function(dr4pl_fit){
   return(params_list)
 }
 
-myspread <- myspread <- function(df, key, value) {
+myspread <- function(df, key, value) {
   # quote key
   keyq <- rlang::enquo(key)
   # break value vector into quotes
