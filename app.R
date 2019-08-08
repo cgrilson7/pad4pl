@@ -491,10 +491,11 @@ server <- function(input, output, session) {
                     colour = "#333333") +
       geom_point(size = 3, colour = "#FC7018") +
       annotate("label",
-               x = c(1e-1, 1e0),
+               x = c(1e-2, 1e0),
                y = c(5000, 5000),
                label = c(fitted_conditions_string, fitted_params_string),
-               hjust = 0) +
+               hjust = 0,
+               vjust = 0) +
       theme(axis.title = element_text(size = 12, face = 'bold'),
             axis.text = element_text(size = 12)
             )
