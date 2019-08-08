@@ -404,7 +404,7 @@ server <- function(input, output, session) {
 
     mapped_df() %>%
       rename(dose = input$chosen_dose_col) %>%
-      mutate(dose = ifelse(dose <= 0, 0.01, dose)) %>%
+      mutate(dose = ifelse(dose <= 0, 1e-2, dose)) %>%
       dplyr::group_by(cytokine, !!!syms(input$chosen_condition_cols)) %>%
       tidyr::nest(.key="group_data") %>%
       mutate(fit = purrr::map(group_data, fit_curve, input$chosen_response_col, "dose")) %>%
@@ -446,49 +446,74 @@ server <- function(input, output, session) {
     }
   )
   
+
+# Plotting ----------------------------------------------------------------
+
   
   selected_row <- reactiveVal(1)
   
-  curve_plot <- function(){
-    fitted_df()$fit[[selected_row()]] %>% plot()
+  observeEvent(input$plot_button, {
+    new_row <- as.numeric(strsplit(input$plot_button, "_")[[1]][2])
+    selected_row(new_row)
+  }
+  )
+  
+  y_hat <- function(x,A,B,C,D){
+    return(D + ((A-D)/(1+(x/C)^B)))
   }
   
+  curve_plot <- function(){
+    fitted_data <- fitted_df()$fit[[selected_row()]]$data
+    
+    fitted_params <- fitted_df() %>%
+      slice(selected_row()) %>% 
+      mutate(Window = UpperLimit/LowerLimit) %>%
+      select(Lower = LowerLimit, Slope, EC50, Upper = UpperLimit, Window, Rsq) %>%
+      unlist() %>%
+      round(3)
+    fitted_params_string <- paste(names(fitted_params), fitted_params, sep = ":  ", collapse = "\n")
+    
+    fitted_conditions <- fitted_df() %>%
+      slice(selected_row()) %>%
+      select(cytokine, TargetCell, DonorRunID, ACTRDensity, ETRatio) %>%
+      unlist()
+    fitted_conditions_string <- paste(names(fitted_conditions), fitted_conditions, sep = ":  ", collapse = "\n")
+    
+    ggplot(fitted_data, aes(x = Dose, y = Response)) +
+      scale_x_log10(breaks = c(1e-2, 1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6)) +
+      scale_y_continuous(limits = c(-1e0, 6e3)) +
+      stat_function(fun = y_hat,
+                    args = list(A = fitted_params["Lower"],
+                                B = fitted_params["Slope"],
+                                C = fitted_params["EC50"],
+                                D = fitted_params["Upper"]),
+                    size = 1,
+                    colour = "#333333") +
+      geom_point(size = 3, colour = "#FC7018") +
+      annotate("label",
+               x = c(1e-1, 1e0),
+               y = c(5000, 5000),
+               label = c(fitted_conditions_string, fitted_params_string),
+               hjust = 0) +
+      theme(axis.title = element_text(size = 12, face = 'bold'),
+            axis.text = element_text(size = 12)
+            )
+  }
+  
+  output$fit_plotted <- renderPlot({
+    curve_plot()
+  })
+  
   curve_filename <- function(){fitted_df() %>%
-      dplyr::select(c(cytokine, !!!syms(input$chosen_condition_cols))) %>%
+      dplyr::select(!!!syms(input$chosen_condition_cols)) %>%
       slice(selected_row()) %>%
       unlist(., use.names = FALSE) %>%
       paste0(paste(., collapse="_"), ".png")}
   
-  observeEvent(input$plot_button, {
-                 new_row <- as.numeric(strsplit(input$plot_button, "_")[[1]][2])
-                 selected_row(new_row)
-                # showModal(modalDialog(plotOutput("fit_plotted", width = "70%")))
-    }
-  )
-  
-  output$fit_plotted <- renderPlot({
-    curve_plot()
-    # p <- curve_plot()
-    # 
-    # conditions <- fitted_df() %>%
-    #   dplyr::select(cytokine:ETRatio) %>%
-    #   slice(selected_row()) %>%
-    #   unlist(., use.names=FALSE) %>% paste(., collapse=", ")
-    # 
-    # parameters <- fitted_df() %>%
-    #   dplyr::select(LowerLimit, Slope, EC50, UpperLimit) %>%
-    #   slice(selected_row()) %>%
-    #   unlist(., use.names = T)
-    # parameters_string <- paste(names(parameters), round(parameters, 2), sep = ": ", collapse = ", ")
-    # 
-    # p_out <- p + title(conditions, sub = parameters_string)
-    # print(p_out)
-  })
-  
   output$download_plot <- downloadHandler(
     filename = function(){curve_filename()},
     content = function(file){
-      ggsave(file, curve_plot())
+      ggsave(file, plot = curve_plot(), width = 9, height = 6)
     },
     contentType = "image/png"
   )
